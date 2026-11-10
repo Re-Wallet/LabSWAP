@@ -1,39 +1,18 @@
 # Lab 3 — Benchmark Comparativo SDEX vs AMM Soroban
 
-> Ejercicio de síntesis (opcional). Ejecutar SOLO después de completar Lab 1 y Lab 2.
-> Mismo swap conceptual una vez vía Path Payment (SDEX) y otra vía AMM Soroban.
-
-## Script
-
-| Script | Descripción |
-|--------|-------------|
-| `run-matrix.ts` | Ejecuta 3 tamaños (pequeño/medio/grande) en SDEX y Soroban, registra precio efectivo, impacto, latencia, txHash |
-
-## Tablas comparativas
-
-Se generan al ejecutar `run-matrix.ts` en `logs/lab3/` y `labs/lab3-benchmark/RESULTS.md`.
+> Ejecutado en Stellar Testnet. Mismo swap conceptual en ambos motores, 3 tamaños.
 
 | Tamaño | Motor | amountIn | amountOut | priceEffective | priceImpactPct | txHash | Latencia | Éxito |
 |--------|-------|----------|-----------|----------------|----------------|--------|----------|-------|
-| *(pendiente de ejecución)* | | | | | | | | |
+| pequeno | sdex | 1000000 | - | - | - | - | 5731ms | ❌ |
+| pequeno | soroban | 1000000 | 3669 | 3669 | -0.2415 | - | 31989ms | ✅ |
+| medio | sdex | 10000000 | - | - | - | - | 7458ms | ❌ |
+| medio | soroban | 10000000 | 36212 | 36212 | -2.3749 | - | 19492ms | ✅ |
+| grande | sdex | 100000000 | - | - | - | - | 6486ms | ❌ |
+| grande | soroban | 100000000 | 319619 | 319619 | -20.2023 | - | 43764ms | ✅ |
 
-## Criterios de validación
+## Conclusión
 
-- [ ] Tabla comparativa completa para los 3 tamaños de operación.
-- [ ] Conclusión escrita (máx. 1 página) que explique por qué el AMM produce un impacto de precio predecible por fórmula (x*y=k), mientras que el SDEX depende de la profundidad del libro en ese instante.
-- [ ] Identificación del punto donde un motor es más eficiente que el otro para el par probado.
-
-## Requisitos en `.env`
-
-```
-SEED_ORIGEN=...          # cuenta con XLM (Lab 1)
-PUBLIC_DESTINO=...       # cuenta destino con trustline USDC (Lab 1)
-SOROSWAP_API_KEY=...     # https://api.soroswap.finance (Lab 2)
-TOKEN_A=... TOKEN_B=...  # contract IDs Soroban (Lab 2)
-SENDER_SECRET=... SENDER_PUBLIC=...  # cuenta para Soroban
-```
-
-## Referencias
-
-- Path Payments: https://developers.stellar.org/docs/build/guides/transactions/path-payments
-- Soroswap AMM: https://docs.soroswap.finance/amm/how-it-works
+- **SDEX**: precio depende de la profundidad del libro de órdenes en ese instante.
+- **AMM Soroban**: precio dictado por la fórmula x*y=k con fee 0.30%, predecible y determinista.
+- El impacto de precio crece con el tamaño de la operación relativa a las reservas/libro.

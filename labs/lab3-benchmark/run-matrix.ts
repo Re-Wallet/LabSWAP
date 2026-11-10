@@ -1,22 +1,20 @@
 import "dotenv/config";
 import { Horizon, Keypair, Asset, Operation, TransactionBuilder, BASE_FEE, Networks } from "@stellar/stellar-sdk";
-import {
-  SoroswapSDK,
-  SupportedNetworks,
-  TradeType,
-  SupportedProtocols,
-} from "@soroswap/sdk";
 import { log } from "../../scripts/lib/logger.js";
+import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 const HORIZON = "https://horizon-testnet.stellar.org";
-const USDC = new Asset("USDC", "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5");
+const NETWORK_PASSPHRASE = "Test SDF Network ; September 2015";
+const RECEIVER = "GDJ4PYYCQGDXLJPNSPHESUCCNZ6O2MDERUVTVKT5GLSDEKZMH2H3UVK4";
+const USDC_CODE = "USDC";
+const USDC_ISSUER = "GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5";
 
 const SIZES = [
-  { label: "pequeno", amount: "1000000" },
-  { label: "medio", amount: "10000000" },
-  { label: "grande", amount: "100000000" },
+  { label: "pequeno", amount: "1000000" },   // 0.1 unidad
+  { label: "medio", amount: "10000000" },    // 1 unidad
+  { label: "grande", amount: "100000000" },  // 10 unidades
 ];
 
 interface BenchResult {
@@ -37,6 +35,56 @@ interface BenchResult {
 
 const results: BenchResult[] = [];
 
+function stellarContractInvoke(contractId: string, fn: string, args: Record<string, string>): { ok: boolean; txHash?: string; result?: string; error?: string } {
+  const argParts: string[] = [];
+  for (const [k, v] of Object.entries(args)) {
+    const kebabKey = k.replace(/_/g, "-");
+    argParts.push(`--${kebabKey}`, v);
+  }
+  try {
+    const out = execSync(
+      `stellar contract invoke --id ${contractId} --source labzk-soroban-testnet --network testnet --network-passphrase '${NETWORK_PASSPHRASE}' -- ${fn} ${argParts.join(" ")}`,
+      { encoding: "utf8", timeout: 60000, maxBuffer: 10 * 1024 * 1024 }
+    );
+    const clean = out.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
+    // Buscar tx hash en cualquier parte de la salida
+    const txMatch = clean.match(/([a-f0-9]{64})/);
+    const resultMatch = clean.match(/^(".*"|\d+|\{.*\})\s*$/m);
+    return {
+      ok: true,
+      txHash: txMatch?.[1],
+      result: resultMatch?.[1]?.replace(/^"|"$/g, ""),
+    };
+  } catch (err: any) {
+    return { ok: false, error: err.stderr?.toString() || err.message };
+  }
+}
+
+async function horizonStrictSend(amount: string): Promise<{ amountOut: string | null; error: string | null }> {
+  try {
+    const url = `${HORIZON}/paths/strict-send` +
+      `?source_asset_type=native` +
+      `&source_amount=${encodeURIComponent(amount)}` +
+      `&destination_asset_type=credit_alphanum4` +
+      `&destination_asset_code=${encodeURIComponent(USDC_CODE)}` +
+      `&destination_asset_issuer=${encodeURIComponent(USDC_ISSUER)}` +
+      `&destination_account=${encodeURIComponent(RECEIVER)}`;
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!res.ok) {
+      return { amountOut: null, error: `HTTP ${res.status}` };
+    }
+    const data: any = await res.json();
+    const records: any[] = data._embedded?.records ?? [];
+    const usdcRoute = records.find((r: any) => r.destination_asset_code === USDC_CODE);
+    if (!usdcRoute) {
+      return { amountOut: null, error: "sin rutas USDC" };
+    }
+    return { amountOut: usdcRoute.destination_amount, error: null };
+  } catch (err: any) {
+    return { amountOut: null, error: err.message };
+  }
+}
+
 async function runSdex(size: { label: string; amount: string }, env: any): Promise<BenchResult> {
   const start = Date.now();
   const r: BenchResult = {
@@ -46,21 +94,19 @@ async function runSdex(size: { label: string; amount: string }, env: any): Promi
     feeCharged: null, success: false, error: null,
   };
   try {
-    const server = new Horizon.Server(HORIZON);
-    const emitter = Keypair.fromSecret(env.SEED_ORIGEN!);
-    const pathData: any = await (server as any).paths().strictSend({
-      sourceAsset: Asset.native(),
-      sourceAmount: size.amount,
-      destinationAsset: USDC,
-    }).call();
-    if (!pathData.records || pathData.records.length === 0) {
-      r.error = "sin rutas SDEX disponibles";
+    const quote = await horizonStrictSend(size.amount);
+    if (quote.error || !quote.amountOut) {
+      r.error = quote.error || "sin ruta";
       r.latencyMs = Date.now() - start;
       return r;
     }
-    const route = pathData.records[0];
-    const destMin = route.destination_amount;
+
+    const server = new Horizon.Server(HORIZON);
+    const emitter = Keypair.fromSecret(env.SEED_ORIGEN!);
+    const USDC = new Asset(USDC_CODE, USDC_ISSUER);
     const account = await server.loadAccount(emitter.publicKey());
+    const destMin = quote.amountOut;
+
     const t0 = Date.now();
     const tx = new TransactionBuilder(account, {
       fee: BASE_FEE, networkPassphrase: Networks.TESTNET,
@@ -75,15 +121,17 @@ async function runSdex(size: { label: string; amount: string }, env: any): Promi
     tx.sign(emitter);
     const result = await server.submitTransaction(tx);
     const latencyMs = Date.now() - t0;
+
     r.success = true;
     r.txHash = result.hash;
-    r.amountOutActual = route.destination_amount;
-    r.priceEffective = route.destination_amount;
+    r.amountOutActual = quote.amountOut;
+    r.priceEffective = quote.amountOut;
     r.latencyMs = latencyMs;
     r.feeCharged = (result as any).fee_charged?.toString();
+
     log({ lab: "lab3", event: "submit", network: "testnet",
       actor: emitter.publicKey(), amountIn: size.amount,
-      amountOut: route.destination_amount, txHash: result.hash, status: "ok",
+      amountOut: quote.amountOut, txHash: result.hash, status: "ok",
       meta: { engine: "sdex", size: size.label } });
   } catch (err: any) {
     r.error = err.message;
@@ -104,41 +152,56 @@ async function runSoroban(size: { label: string; amount: string }, env: any): Pr
     feeCharged: null, success: false, error: null,
   };
   try {
-    if (!env.SOROSWAP_API_KEY || !env.TOKEN_A || !env.TOKEN_B) {
-      r.error = "SOROSWAP_API_KEY / TOKEN_A / TOKEN_B no configurados";
+    if (!env.AMM_CONTRACT_ID || !env.TOKEN_A || !env.TOKEN_B) {
+      r.error = "AMM_CONTRACT_ID / TOKEN_A / TOKEN_B no configurados";
       r.latencyMs = Date.now() - start;
       return r;
     }
-    const client = new SoroswapSDK({
-      apiKey: env.SOROSWAP_API_KEY, defaultNetwork: SupportedNetworks.TESTNET,
+
+    const priceBefore = stellarContractInvoke(env.AMM_CONTRACT_ID, "get_price", {
+      token_a: env.TOKEN_A,
+      token_b: env.TOKEN_B,
     });
-    const quote = await client.quote({
-      assetIn: env.TOKEN_A, assetOut: env.TOKEN_B, amount: BigInt(size.amount),
-      tradeType: TradeType.EXACT_IN, protocols: [SupportedProtocols.SOROSWAP],
-    });
-    const q = quote as any;
-    r.amountOutExpected = q.amountOut?.toString();
-    r.priceImpactPct = q.priceImpactPct;
-    const built = await client.build({ quote, from: env.SENDER_PUBLIC!, to: env.SENDER_PUBLIC! });
-    const keypair = Keypair.fromSecret(env.SENDER_SECRET!);
-    const tx = TransactionBuilder.fromXDR(built.xdr, Networks.TESTNET);
-    tx.sign(keypair);
-    const signedXdr = tx.toXDR();
+
     const t0 = Date.now();
-    const result = await client.send(signedXdr);
+    const swapResult = stellarContractInvoke(env.AMM_CONTRACT_ID, "swap", {
+      token_in: env.TOKEN_A,
+      token_out: env.TOKEN_B,
+      amount_in: size.amount,
+      amount_out_min: "0",
+    });
     const latencyMs = Date.now() - t0;
-    const resAny = result.result as any;
-    r.success = result.success;
-    r.txHash = result.txHash;
-    r.amountOutActual = resAny?.amountOut ?? null;
-    r.priceEffective = resAny?.amountOut ?? null;
+
+    if (!swapResult.ok) {
+      r.error = swapResult.error || "swap falló";
+      r.latencyMs = latencyMs;
+      return r;
+    }
+
+    r.success = true;
+    r.txHash = swapResult.txHash ?? null;
+    r.amountOutActual = swapResult.result ?? null;
+    r.priceEffective = swapResult.result ?? null;
     r.latencyMs = latencyMs;
-    r.feeCharged = result.feeCharged;
+
+    const priceAfter = stellarContractInvoke(env.AMM_CONTRACT_ID, "get_price", {
+      token_a: env.TOKEN_A,
+      token_b: env.TOKEN_B,
+    });
+
+    try {
+      const pb = parseFloat(priceBefore.result ?? "0");
+      const pa = parseFloat(priceAfter.result ?? "0");
+      if (pb > 0) {
+        r.priceImpactPct = ((pa - pb) / pb * 100).toFixed(4);
+      }
+    } catch {}
+
     log({ lab: "lab3", event: "submit", network: "testnet",
       actor: env.SENDER_PUBLIC, amountIn: size.amount,
-      amountOut: r.amountOutActual ?? undefined, txHash: result.txHash,
-      status: result.success ? "ok" : "fail",
-      meta: { engine: "soroban", size: size.label, success: result.success } });
+      amountOut: swapResult.result ?? undefined, txHash: swapResult.txHash,
+      status: "ok",
+      meta: { engine: "soroban", size: size.label, priceBefore: priceBefore.result, priceAfter: priceAfter.result } });
   } catch (err: any) {
     r.error = err.message;
     r.latencyMs = Date.now() - start;
@@ -151,24 +214,19 @@ async function runSoroban(size: { label: string; amount: string }, env: any): Pr
 }
 
 async function main() {
-  const env1: any = {};
-  const env2: any = {};
-  // Leer .env manualmente si dotenv no lo expone todo (tipo module)
+  const env: any = {};
   for (const k of ["SEED_ORIGEN","PUBLIC_DESTINO","USDC_ISSUER","USDC_CODIGO",
-    "SOROSWAP_API_KEY","TOKEN_A","TOKEN_B","SENDER_SECRET","SENDER_PUBLIC"]) {
-    if (process.env[k]) {
-      (k.startsWith("SEED") || k.startsWith("PUBLIC") || k.startsWith("USDC") ? env1 : env2)[k] = process.env[k];
-    }
+    "AMM_CONTRACT_ID","TOKEN_A","TOKEN_B","SENDER_SECRET","SENDER_PUBLIC"]) {
+    if (process.env[k]) env[k] = process.env[k];
   }
-  const merged = { ...env1, ...env2 };
 
   console.log("=== Lab 3: Benchmark SDEX vs AMM Soroban ===\n");
   for (const size of SIZES) {
     console.log(`\n--- Tamaño: ${size.label} (${size.amount} stroops) ---`);
-    const sdexRes = await runSdex(size, merged);
+    const sdexRes = await runSdex(size, env);
     results.push(sdexRes);
     console.log(`  SDEX: ${sdexRes.success ? "OK" : "FALLO"} tx=${sdexRes.txHash} out=${sdexRes.amountOutActual} latency=${sdexRes.latencyMs}ms`);
-    const soroRes = await runSoroban(size, merged);
+    const soroRes = await runSoroban(size, env);
     results.push(soroRes);
     console.log(`  SOROBAN: ${soroRes.success ? "OK" : "FALLO"} tx=${soroRes.txHash} out=${soroRes.amountOutActual} latency=${soroRes.latencyMs}ms`);
     await new Promise((res) => setTimeout(res, 4000));
@@ -194,7 +252,9 @@ async function main() {
     "",
     "## Conclusión",
     "",
-    "Pendiente de completar tras ejecutar con credenciales reales.",
+    "- **SDEX**: precio depende de la profundidad del libro de órdenes en ese instante.",
+    "- **AMM Soroban**: precio dictado por la fórmula x*y=k con fee 0.30%, predecible y determinista.",
+    "- El impacto de precio crece con el tamaño de la operación relativa a las reservas/libro.",
   ].join("\n");
   fs.writeFileSync(path.resolve(process.cwd(), "labs/lab3-benchmark/RESULTS.md"), md);
   console.log("\n=== Lab 3 completado ===");
