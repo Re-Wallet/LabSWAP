@@ -17,8 +17,8 @@
 
 | ID | Caso | Esperado | Estado | Evidencia (txHash) |
 |----|------|----------|--------|---------------------|
-| T1 | Path Payment Strict Send, ruta directa, `destMin` holgado | ✅ éxito | ⬜ pendiente | — |
-| T2 | Path Payment Strict Send, `destMin` imposible | ❌ debe fallar (slippage) | ⬜ pendiente | — |
+| T1 | Path Payment Strict Send, ruta directa, `destMin` holgado | ✅ éxito | ✅ completado | `09b811004db70ecc43421fb2e45b47cce2588e07a1fd7cd4c41339a16b4e1870` |
+| T2 | Path Payment Strict Send, `destMin` imposible | ❌ debe fallar (slippage) | ✅ completado (`op_under_dest_min`) | — |
 | T3 | Path Payment Strict Receive, `sendMax` holgado | ✅ éxito | ⬜ pendiente | — |
 | T4 | Path Payment Strict Receive, `sendMax` insuficiente | ❌ debe fallar (slippage) | ⬜ pendiente | — |
 | T5 | Consulta de rutas sin liquidez suficiente | respuesta vacía / controlada | ⬜ pendiente | — |
