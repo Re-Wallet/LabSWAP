@@ -10,7 +10,7 @@
 | `01-fund-accounts.ts` | Fondar cuentas con Friendbot y crear trustline USDC en el destino |
 | `02-publish-offer.ts` | Publicar Manage Sell Offer: vender 100 XLM por 40 USDC (precio 2.5 XLM/USDC) |
 | `03-query-paths.ts` | Consultar rutas strict-send y strict-receive en Horizon |
-| `04-path-payment.ts` | Ejecutar Path Payment Strict Send y Strict Receive (T1–T4) |
+| `04-path-payment.ts` | Ejecutar Path Payment Strict Send y Strict Receive (T1–T6) |
 | `05-verify.ts` | Verificar balances antes y después |
 
 ## Matriz de casos de prueba
@@ -21,8 +21,8 @@
 | T2 | Path Payment Strict Send, `destMin` imposible | ❌ debe fallar (slippage) | ✅ completado (`op_under_dest_min`) | — |
 | T3 | Path Payment Strict Receive, `sendMax` holgado | ✅ éxito | ✅ completado | `5b49ce134675ae464c7e4eac6b6906da1a77df74bfe7c4cf185767c32816c7b1` |
 | T4 | Path Payment Strict Receive, `sendMax` insuficiente | ❌ debe fallar (slippage) | ✅ completado (`op_over_source_max`) | — |
-| T5 | Consulta de rutas sin liquidez suficiente | respuesta vacía / controlada | ⚠️ 1 ruta encontrada (hay liquidez en libro para 10M XLM) | — |
-| T6 | Trustline faltante en destino | operación rechazada (`op_no_trust`) | ⚠️ `op_no_destination` (cuenta aleatoria no existe); para `op_no_trust` se necesita cuenta existente sin trustline | — |
+| T5 | Consulta de rutas sin liquidez suficiente | respuesta vacía / controlada | ✅ completado (0 rutas para 10M USDC vía strictReceive) | — |
+| T6 | Trustline faltante en destino | operación rechazada (`op_no_trust`) | ✅ completado (`op_no_trust` confirmado) | — |
 
 ## Logs
 
