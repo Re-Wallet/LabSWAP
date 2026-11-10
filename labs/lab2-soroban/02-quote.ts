@@ -1,48 +1,37 @@
-// labs/lab2-soroban/02-quote.ts
-// Paso 2 del Lab 2: Obtener cotización (quote) para un swap EXACT_IN.
-//
-// Requiere en .env:
-//   SOROSWAP_API_KEY=...
-//   TOKEN_A=<contract_id token A>
-//   TOKEN_B=<contract_id token B>
-//
-// Uso:
-//   SOROSWAP_API_KEY=... TOKEN_A=... TOKEN_B=... npx ts-node labs/lab2-soroban/02-quote.ts
-
+import "dotenv/config";
 import {
   SoroswapSDK,
   SupportedNetworks,
   TradeType,
   SupportedProtocols,
 } from "@soroswap/sdk";
-import { loadEnvLab2, logger } from "./helpers";
-import * as fs from "fs";
-import * as path from "path";
+import { log } from "../../scripts/lib/logger.js";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-const AMOUNT_IN = "10000000"; // 1 unidad con 7 decimales (ejemplo)
+const AMOUNT_IN = "10000000"; // 1 unidad con 7 decimales
 
-async function main(): Promise<void> {
-  const env = loadEnvLab2();
-  if (!env.SOROSWAP_API_KEY) {
+async function main() {
+  if (!process.env.SOROSWAP_API_KEY) {
     throw new Error("SOROSWAP_API_KEY es requerido en .env");
   }
-  if (!env.TOKEN_A || !env.TOKEN_B) {
+  if (!process.env.TOKEN_A || !process.env.TOKEN_B) {
     throw new Error("TOKEN_A y TOKEN_B son requeridos en .env");
   }
 
   const client = new SoroswapSDK({
-    apiKey: env.SOROSWAP_API_KEY,
+    apiKey: process.env.SOROSWAP_API_KEY,
     defaultNetwork: SupportedNetworks.TESTNET,
   });
 
   console.log("[02] Solicitando cotización EXACT_IN:");
-  console.log("  assetIn :", env.TOKEN_A);
-  console.log("  assetOut:", env.TOKEN_B);
+  console.log("  assetIn :", process.env.TOKEN_A);
+  console.log("  assetOut:", process.env.TOKEN_B);
   console.log("  amount  :", AMOUNT_IN);
 
   const quote = await client.quote({
-    assetIn: env.TOKEN_A,
-    assetOut: env.TOKEN_B,
+    assetIn: process.env.TOKEN_A,
+    assetOut: process.env.TOKEN_B,
     amount: BigInt(AMOUNT_IN),
     tradeType: TradeType.EXACT_IN,
     protocols: [SupportedProtocols.SOROSWAP],
@@ -57,29 +46,30 @@ async function main(): Promise<void> {
   console.log("  routePlan      :", JSON.stringify(q.routePlan));
   console.log("  platform       :", q.platform);
 
-  logger("lab2", "quote", {
-    actor: env.SENDER_PUBLIC,
-    assetIn: env.TOKEN_A,
-    assetOut: env.TOKEN_B,
+  log({
+    lab: "lab2", event: "quote", network: "testnet",
+    actor: process.env.SENDER_PUBLIC,
+    assetIn: process.env.TOKEN_A,
+    assetOut: process.env.TOKEN_B,
     amountIn: q.amountIn?.toString() ?? AMOUNT_IN,
     amountOut: q.amountOut?.toString(),
-    otherAmountThreshold: q.otherAmountThreshold?.toString(),
-    priceImpactPct: q.priceImpactPct,
-    routePlan: q.routePlan,
-    platform: q.platform,
-    tradeType: "EXACT_IN",
+    priceMarginal: q.priceImpactPct,
     status: "ok",
+    meta: {
+      otherAmountThreshold: q.otherAmountThreshold?.toString(),
+      routePlan: q.routePlan,
+      platform: q.platform,
+    },
   });
 
-  // Guardar el quote para el siguiente paso (no es un secreto)
   const out = path.resolve(process.cwd(), "labs/lab2-soroban/.last-quote.json");
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(
     out,
     JSON.stringify(
       {
-        assetIn: env.TOKEN_A,
-        assetOut: env.TOKEN_B,
+        assetIn: process.env.TOKEN_A,
+        assetOut: process.env.TOKEN_B,
         amountIn: q.amountIn?.toString(),
         amountOut: q.amountOut?.toString(),
         otherAmountThreshold: q.otherAmountThreshold?.toString(),
@@ -94,11 +84,13 @@ async function main(): Promise<void> {
   );
 
   console.log("\n=== Paso 02 completado ===");
-  logger("lab2", "end", { step: "02-quote", status: "ok" });
+  log({ lab: "lab2", event: "info", network: "testnet", status: "ok",
+    meta: { step: "02-quote" } });
 }
 
-main().catch((err) => {
-  console.error("[02] ERROR:", err.message);
-  logger("lab2", "error", { step: "02-quote", errorCode: err.code, message: err.message });
+main().catch((e) => {
+  console.error("[02] ERROR:", e.message);
+  log({ lab: "lab2", event: "error", network: "testnet", status: "fail",
+    errorCode: String(e?.message ?? e) });
   process.exit(1);
 });

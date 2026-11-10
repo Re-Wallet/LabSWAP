@@ -12,18 +12,19 @@ Dos laboratorios independientes y autocontenidos:
 
 ```
 stellar-swap-labs/
-├── .env.example              # Plantilla de variables de entorno (NO commitear .env real)
+├── .env.example              # plantilla de variables (NO commitear .env real)
 ├── .gitignore
-├── package.json
+├── package.json              # type: module, tsx, dotenv
 ├── tsconfig.json
 ├── README.md
 ├── scripts/
-│   └── check-env.ts          # Valida conectividad Horizon + Soroban RPC
+│   ├── check-env.ts          # valida conectividad Horizon + Soroban RPC
+│   └── lib/logger.ts         # logger JSONL centralizado
 ├── docs/
-│   └── MODELO-MENTAL.md      # x*y=k, impacto de precio, slippage, cuándo usar cada motor
+│   └── MODELO-MENTAL.md      # x*y=k, impacto, slippage, economía del pool
 ├── labs/
-│   ├── lab1-sdex/            # 01..05 scripts + RESULTS.md (T1–T6)
-│   ├── lab2-soroban/         # 01..04 scripts + RESULTS.md (T7–T12)
+│   ├── lab1-sdex/            # 01-fund, 02-offer, 03-paths, 04-payment, 05-verify + RESULTS.md (T1–T6)
+│   ├── lab2-soroban/         # 02-quote, 03-swap, 04-verify + RESULTS.md (T7–T12)
 │   └── lab3-benchmark/       # run-matrix.ts + RESULTS.md
 └── logs/
     ├── lab1/, lab2/, lab3/   # JSONL por operación (no commitear sensibles)
@@ -35,48 +36,46 @@ stellar-swap-labs/
 # 1. Instalar dependencias
 npm install
 
-# 2. Copiar plantilla de entorno y rellenar
+# 2. Copiar plantilla y rellenar
 cp .env.example .env
-# editar .env con tus valores (SEED_ORIGEN, SOROSWAP_API_KEY, TOKEN_A, TOKEN_B, etc.)
+# editar .env (SENDER_SECRET, RECEIVER_SECRET, SOROSWAP_API_KEY, TOKEN_A, TOKEN_B, etc.)
 
 # 3. Validar conectividad Testnet
-npm run check:env
+npm run check-env
 ```
 
 ## Ejecutar Lab 1 (SDEX / Path Payments)
 
 ```bash
 npm run lab1:fund   # 01 fondar cuentas + trustline USDC
-npm run lab1:offer  # 02 publicar oferta SDEX (vender 100 XLM por 40 USDC)
+npm run lab1:offer  # 02 publicar oferta SDEX (vender 50 XLM por 25 USDC)
 npm run lab1:paths  # 03 consultar rutas strict-send / strict-receive
-npm run lab1:payment # 04 ejecutar Path Payment (T1–T4)
-npm run lab1:verify  # 05 verificar balances antes y después
+npm run lab1:swap   # 04 ejecutar Path Payment (T1: éxito, T2: slippage falla)
+npm run lab1:verify # 05 verificar balances antes y después
 ```
 
 ## Ejecutar Lab 2 (Soroswap AMM)
 
 ```bash
-npm run lab2:init  # 01 inicializar SDK Soroswap
-npm run lab2:quote # 02 cotizar EXACT_IN
-npm run lab2:swap  # 03 ejecutar swap (T7–T9)
-npm run lab2:verify # 04 verificar balances y reservas
+npm run lab2:quote  # 02 cotizar EXACT_IN
+npm run lab2:swap   # 03 ejecutar swap (T7 pequeño, T8 grande, T9 slippage)
+npm run lab2:verify # 04 verificar balances y reservas on-chain
 ```
 
 ## Ejecutar Lab 3 (Benchmark)
 
 ```bash
-npx ts-node labs/lab3-benchmark/run-matrix.ts
+npx tsx labs/lab3-benchmark/run-matrix.ts
 ```
 
 ## Seguridad
 
 - Nunca commitear secretos (`S...`) ni API keys.
 - `.env`, `package-lock.json` y `logs/*.jsonl` están en `.gitignore`.
-- Verificar antes de commitear: `grep -r "S\." . --include="*.ts" --include="*.md" --include="*.json" | grep -v node_modules` o usar `git secrets`.
 
 ## Resultados
 
-Cada lab tiene su `RESULTS.md` con la matriz de casos de prueba (✅/❌) y evidencias de `txHash` en `logs/<lab>/`.
+Cada lab tiene su `RESULTS.md` con la matriz de casos (✅/❌) y evidencias de `txHash` en `logs/<lab>/`.
 
 ## Referencias
 

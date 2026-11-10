@@ -11,9 +11,7 @@
 
 ## Tablas comparativas
 
-Las tablas se generan automáticamente al ejecutar `run-matrix.ts` y se escriben en:
-- `logs/lab3/<timestamp>.jsonl` (JSONL por operación)
-- `labs/lab3-benchmark/RESULTS.md` (esta tabla, sobreescrita)
+Se generan al ejecutar `run-matrix.ts` en `logs/lab3/` y `labs/lab3-benchmark/RESULTS.md`.
 
 | Tamaño | Motor | amountIn | amountOut | priceEffective | priceImpactPct | txHash | Latencia | Éxito |
 |--------|-------|----------|-----------|----------------|----------------|--------|----------|-------|

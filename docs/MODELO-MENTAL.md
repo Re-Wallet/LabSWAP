@@ -1,129 +1,173 @@
-# Modelo Mental — SDEX vs AMM Soroban
+# Modelo Mental — El corazón del swap y su economía
 
-> Documento de síntesis para los laboratorios de swap en Stellar.
-> Explica con palabras propias por qué cada motor fija el precio de forma distinta,
-> qué es el impacto de precio y el slippage, y cuándo conviene cada uno.
-
----
-
-## 1. El SDEX (Stellar Decentralized Exchange) — nivel de protocolo
-
-El SDEX es el libro de órdenes descentralizado nativo del protocolo Stellar.
-No hay un contrato inteligente que calcule el precio. El precio lo determina el
-**cruce de ofertas de compra y venta** publicadas por los participantes (Market Makers).
-
-### Cómo se fija el precio
-Cada oferta (`Manage Sell Offer` / `Manage Buy Offer`) especifica:
-- activo que vende y cantidad,
-- activo que compra y precio (rate).
-
-Cuando se ejecuta un `Path Payment`, el protocolo recorre las ofertas del libro
-desde el mejor precio hacia peores precios hasta completar la cantidad solicitada.
-El precio efectivo es el **precio marginal promedio ponderado** de las ofertas
-cruzadas, no una fórmula única.
-
-### Propiedades clave
-- **Profundidad del libro**: si hay pocas ofertas, un swap grande consume varias
-  ofertas a peores precios → alto impacto de precio.
-- **Predecibilidad limitada**: el precio depende de qué ofertas existan en el
-  instante exacto de la transacción. Puede cambiar entre la consulta de la ruta
-  (`/paths/strict-send`) y el envío de la transacción.
-- **Protección contra slippage**: `destMin` (Strict Send) y `sendMax`
-  (Strict Receive) definen los límites aceptables. Si el precio efectivo queda
-  fuera de esos límites, la transacción falla.
+> Documento de referencia para los Labs 1, 2 y 3.
+> Objetivo: fijar el modelo mental agnóstico antes de tocar código.
 
 ---
 
-## 2. El AMM Soroban — nivel de contrato inteligente
+## 1. El motor: invariante de producto constante (`x * y = k`)
 
-El AMM (Automated Market Maker) de Soroswap vive como contrato inteligente en
-Soroban. No hay libro de órdenes. Hay **pools de liquidez** con dos reservas:
-`x` (reserva de token A) e `y` (reserva de token B).
+- `x`, `y`: reservas de los dos tokens del pool.
+- `k`: constante que el protocolo preserva (descontando fees) en cada swap.
+- El precio **no lo pone una persona**: lo dicta la escasez relativa.
+  - Precio marginal (spot): `y / x`.
+  - Precio efectivo de un swap: `Δx / Δy` (siempre peor que el marginal).
 
-### Invariante de producto constante
-```
-x · y = k
-```
-donde `k` es constante (salvo que se añada o retire liquidez).
+Fórmula de output para un `EXACT_IN` con fee `f`:
 
-Cuando un usuario quiere vender `Δx` de token A para recibir `Δy` de token B,
-las nuevas reservas deben cumplir:
-```
-(x + Δx) · (y - Δy) = k
-```
-despejando:
-```
-Δy = y - (k / (x + Δx)) = y - (x·y / (x + Δx))
-```
+Δx_neto = Δx * (1 - f)
+Δy = (y * Δx_neto) / (x + Δx_neto)
 
-### Cómo se fija el precio
-- **Precio marginal** (instantáneo, en el punto actual): `y / x` (cuánto B vale 1 A).
-- **Precio efectivo** (de la operación real): `Δy / Δx`. Siempre es **peor** que el
-  precio marginal para el operador, porque a medida que se consume el pool,
-  el precio se desplaza.
-
-### Comisión (fee) del 0.30%
-Soroswap aplica una comisión del 0.30% sobre la entrada. Ese porcentaje se
-resta de `Δx` antes de aplicar el cálculo, y el restante se añade a las reservas,
-aumentando ligeramente `k` con cada operación (los proveedores de liquidez
-reciben esa comisión vía aumento de `k`).
-
-### Propiedades clave
-- **Predecibilidad por fórmula**: dado `x`, `y` y `Δx`, el `Δy` exacto se calcula
-  antes de enviar. No depende de ofertas de terceros.
-- **Impacto de precio determinista**: crece con el tamaño de la operación relativa
-  a las reservas. Operación pequeña → precio cercano al marginal. Operación
-  grande → precio efectivo muy diferente al marginal.
-- **Protección contra slippage**: `amountOutMin` (o `amount_out_min`). Si el
-  output real es inferior al mínimo, el contrato revierte la transacción.
-- **Pools exclusivos de Soroban**: los pools de Soroban no interactúan con los
-  pools nativos del SDEX de Stellar clásico. Son mundos separados.
+Regla práctica de impacto: price_impact ≈ 2 * (Δx / x) (para Δx pequeños frente a x)
 
 ---
 
-## 3. Impacto de precio vs Slippage
+## 2. El producto real: cotización permanente
 
-| Concepto | Qué mide | En SDEX | En AMM Soroban |
-|----------|----------|---------|----------------|
-| **Impacto de precio** | Diferencia entre precio marginal y precio efectivo por el tamaño de la operación | Depende de la profundidad del libro (ofertas disponibles) | Depende del tamaño de Δx relativo a las reservas x, y |
-| **Slippage** | Diferencia entre el precio esperado (al consultar) y el precio real (al ejecutar) | Puede ocurrir entre la consulta `/paths` y el envío de la tx | Mínimo si no hay otros swaps entre la quote y el envío |
-| **Protección** | `destMin` / `sendMax` | `amountOutMin` | `amountOutMin` |
+El AMM no vende "tokens"; vende **disponibilidad 24/7 a cualquier monto
+sin contraparte humana**. El precio de ese servicio es la **fee**, que se
+queda en el pool y remunera a los LPs.
 
-### Ejemplo numérico (AMM)
-Reservas: `x = 1000` XLM, `y = 400` USDC → `k = 400.000`. Precio marginal: 1 XLM = 0.4 USDC.
+Un pool sobrevive si, de forma sostenida:
 
-- Swap de 10 XLM (1% del pool):
-  - `Δy = 400 - (400.000 / 1010) ≈ 3.96` USDC
-  - Precio efectivo: 3.96 / 10 = 0.396 USDC/XLM (ligeramente peor que 0.4)
+ingreso por fees > pérdida por divergencia + costo de oportunidad
+volumen × fee > IL realizada + tasa libre de riesgo × capital
 
-- Swap de 100 XLM (10% del pool):
-  - `Δy = 400 - (400.000 / 1100) ≈ 36.36` USDC
-  - Precio efectivo: 36.36 / 100 = 0.3636 USDC/XLM (mucho peor)
-
-A mayor operación, mayor impacto de precio.
+Si se rompe la desigualdad → LPs retiran liquidez → pool se hace poco
+profundo → impacto sube → usuarios migran → pool muere. Es un círculo en
+ambas direcciones.
 
 ---
 
-## 4. ¿Cuándo conviene cada motor?
+## 3. Las tres fuerzas del pool
 
-| Situación | Motor recomendado | Razón |
-|-----------|-------------------|-------|
-| Swap pequeño, liquidez profunda en el libro | SDEX | Costo de protocolo bajo, sin necesidad de contrato |
-| Swap donde se necesita predecibilidad exacta del output | AMM Soroban | Fórmula x*y=k da output conocido de antemano |
-| Swap grande sobre libro poco profundo | AMM Soroban | El impacto es predecible por fórmula; en SDEX depende de ofertas dispersas |
-| Ya se tiene liquidez en pools Soroban | AMM Soroban | Los pools son exclusivos; no hay puente nativo con SDEX |
-| Operación simple sin querer gestionar contratos | SDEX | Nivel de protocolo, no se despliega ni se invoca ningún contrato |
+| Fuerza            | Qué hace                                              | Signo para el LP |
+|-------------------|-------------------------------------------------------|------------------|
+| Fees              | 0.01%–1% según tier por swap                          | +                |
+| Arbitraje         | Alinea el precio del pool con el mercado externo      | − (extrae valor) |
+| Divergencia (IL)  | Si el precio relativo se mueve, la canasta empeora    | −                |
+
+El LP es, en la práctica, **la contraparte del arbitrajista**. Gana si el
+volumen orgánico (usuarios que pagan fee por conveniencia) supera el valor
+que el arbitraje extrae.
 
 ---
 
-## 5. Conclusión del modelo mental agnóstico
+## 4. Ejercicio numérico guiado (para el Lab 3)
 
-El "corazón del swap" es el mismo en ambos casos: intercambiar una cantidad de
-un activo por otra al mejor precio posible, protegiéndose contra slippage.
-Lo que cambia es el **motor** que resuelve ese intercambio:
+**Pool inicial**: 100 XLM / 100 USDC. `k = 10,000`. Precio spot = 1 USDC/XLM.
 
-- **SDEX**: protocolo, libro de órdenes, precio = cruce de ofertas, impacto depende de la profundidad del libro en ese instante.
-- **AMM Soroban**: contrato inteligente, reservas del pool, precio = fórmula x*y=k, impacto predecible y determinista.
+### Caso A — swap pequeño (usuario normal)
+Swap `Δx = 1 XLM` a cambio de USDC. Fee 0.3%.
 
-Ambos son válidos; la elección depende del par, el tamaño de la operación y
-dónde esté la liquidez.
+1. `Δx_neto = 1 * 0.997 = 0.997`
+2. `Δy = (100 * 0.997) / (100 + 0.997) = 99.7 / 100.997 ≈ 0.9872 USDC`
+3. Precio efectivo: `1 / 0.9872 ≈ 1.0130 USDC/XLM`
+4. Impacto ≈ `0.9872 / 1 - 1 ≈ -1.28%` en el precio del XLM en el pool.
+5. Fee cobrada al usuario: `1 * 0.003 = 0.003 XLM` (queda en el pool).
+6. Nuevas reservas: `x' = 101`, `y' = 100 - 0.9872 = 99.0128`.
+   `k' = 101 * 99.0128 ≈ 10,000.29 ≥ 10,000` ✅
+
+**Lectura**: el usuario pagó ~1.28% de impacto + 0.3% de fee. El pool
+quedó con precio spot `99.0128 / 101 ≈ 0.9803 USDC/XLM` (XLM más caro
+dentro del pool que afuera si el mercado externo sigue en 1.0).
+
+### Caso B — swap grande (arbitrajista o ballena)
+Mismo pool, `Δx = 10 XLM`.
+
+1. `Δx_neto = 9.97`
+2. `Δy = (100 * 9.97) / (100 + 9.97) = 997 / 109.97 ≈ 9.0661 USDC`
+3. Precio efectivo: `10 / 9.0661 ≈ 1.1030 USDC/XLM`
+4. Impacto ≈ `9.0661/10 - 1 ≈ -9.34%` (regla aproximada: `2*10/100 = 20%`
+   sobreestima; la fórmula exacta manda).
+5. Nuevas reservas: `x' = 110`, `y' = 90.9339`.
+   Precio spot post-swap: `90.9339 / 110 ≈ 0.8267 USDC/XLM`.
+
+**Lectura**: ahora el pool cotiza XLM a 0.827 USDC mientras el mercado
+externo lo tiene a 1.0. **Aquí entra el arbitrajista**: compra XLM barato
+en el pool (pagando USDC) hasta que el precio vuelva a ~1.0. Ese
+arbitraje devuelve el precio a la normalidad, pero **se lleva la
+diferencia**: el LP pagó esa factura.
+
+### Caso C — el LP hace las cuentas
+Imagina que el LP entró con 100 XLM + 100 USDC (valor total = 200 USD a
+precio 1.0) y, tras una serie de swaps + arbitraje, el precio externo del
+XLM subió a 2.0 USDC.
+
+- Si el LP hubiera **holdeado**: tendría 100 XLM (→200 USDC) + 100 USDC
+  = **300 USDC**.
+- Si el LP está **en el pool**: por `x*y=k`, con precio 2.0, las reservas
+  se rebalancean a `x ≈ 70.71 XLM`, `y ≈ 141.42 USDC`.
+  Valor: `70.71 * 2 + 141.42 ≈ 282.84 USDC`.
+- **IL ≈ 282.84 - 300 = -17.16 USD** (≈ -5.72% frente a hold).
+
+Ese -5.72% es el costo de proveer liquidez. El LP solo gana si las fees
+acumuladas en el período **superan** ese -5.72%. Ahí está la decisión
+económica real.
+
+---
+
+## 5. El sistema inmune: arbitraje
+
+- El invariante `x*y=k` garantiza que **nadie pueda sacar valor gratis
+  del pool** en una sola operación.
+- Pero el precio del pool **se desvía del externo** con cada swap.
+- El arbitraje corrige esa desviación → el pool se mantiene útil
+  (precio cercano al real) → pero **el arbitrajista cobra** esa
+  corrección, y la paga el LP.
+
+Un pool con mucho arbitraje y poco volumen orgánico es un pool que
+todavía no sabe que está muerto.
+
+---
+
+## 6. Lo que decide la carrera (no es la fórmula)
+
+1. **Profundidad**: más reservas → menos impacto → más usuarios → más
+   volumen → más fees → más LPs. Efecto de red.
+2. **Fee tier correcto al par**: stablecoins 0.01–0.05%, volátiles 0.3%.
+3. **Incentivos (liquidity mining)**: vida artificial; cuando terminan,
+   la liquidez mercenaria se va si el fee orgánico no alcanza.
+4. **Routing / agregadores**: aparecer en la mejor ruta trae volumen
+   externo. En Stellar, los Path Payments cumplen ese rol.
+5. **Integración real**: pagos, colateral, wallets. Demanda estructural
+   > demanda especulativa.
+
+---
+
+## 7. Stellar: dos motores, un mismo problema económico
+
+| Aspecto        | SDEX (protocolo)                         | AMM Soroban (contrato)                   |
+|----------------|-------------------------------------------|-------------------------------------------|
+| Quién provee   | Market makers profesionales con órdenes  | LPs pasivos con capital en el pool        |
+| Cómo gana      | Spread + gestión activa de inventario    | Fees − divergencia − arbitraje            |
+| Ventaja        | Integración nativa (Path Payments)       | Cotización siempre disponible y predecible|
+| Riesgo propio  | Libro vacío en pares nicho               | IL + arbitraje + dependencia de incentivos|
+| Conviven       | Los Path Payments pueden rutear entre ambos motores                     |
+
+Ninguno "mata" al otro: el mercado decide, par por par y tamaño por
+tamaño, cuál es más eficiente.
+
+---
+
+## 8. Resumen en una línea
+
+> El swap sobrevive porque convierte la necesidad de liquidez inmediata
+> en un flujo de fees que paga a quien asume el riesgo de inventario.
+> Si ese flujo deja de cubrir el costo del riesgo (divergencia +
+> arbitraje), el capital se va y el pool muere. El invariante `x*y=k` es
+> la constitución que evita robos dentro del pool; el clima que decide
+> su supervivencia es el mercado externo.
+
+---
+
+## 9. Checklist de comprensión (para cerrar el Lab 3)
+
+- [ ] Puedo explicar con un ejemplo numérico por qué el precio efectivo
+      es peor que el marginal.
+- [ ] Puedo calcular el output de un swap con fee dado `x`, `y`, `Δx` y `f`.
+- [ ] Puedo estimar la IL para un cambio de precio relativo dado.
+- [ ] Puedo argumentar cuándo conviene un LP activo (SDEX) vs. uno pasivo
+      (AMM) para un par concreto.
+- [ ] Puedo identificar, dado un pool real, si está subsidiado o si sus
+      fees orgánicas sostienen la liquidez.

@@ -1,30 +1,27 @@
 {
-  "name": "labswap-stellar",
+  "name": "stellar-swap-labs",
   "version": "1.0.0",
-  "description": "Dos laboratorios independientes de swap en Stellar: SDEX (nivel de protocolo) y AMM Soroban (contratos inteligentes).",
   "private": true,
+  "type": "module",
   "scripts": {
-    "check:env": "ts-node scripts/check-env.ts",
-    "lab1:fund": "ts-node labs/lab1-sdex/01-fund-accounts.ts",
-    "lab1:offer": "ts-node labs/lab1-sdex/02-publish-offer.ts",
-    "lab1:paths": "ts-node labs/lab1-sdex/03-query-paths.ts",
-    "lab1:payment": "ts-node labs/lab1-sdex/04-path-payment.ts",
-    "lab1:verify": "ts-node labs/lab1-sdex/05-verify.ts",
-    "lab2:init": "ts-node labs/lab2-soroban/01-init-sdk.ts",
-    "lab2:quote": "ts-node labs/lab2-soroban/02-quote.ts",
-    "lab2:swap": "ts-node labs/lab2-soroban/03-swap.ts",
-    "lab2:verify": "ts-node labs/lab2-soroban/04-verify.ts"
-  },
-  "devDependencies": {
-    "@stellar/stellar-sdk": "^12.0.0",
-    "@types/node": "^20.0.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.5.0"
-  },
-  "engines": {
-    "node": ">=20"
+    "check-env": "tsx scripts/check-env.ts",
+    "lab1:fund": "tsx labs/lab1-sdex/01-fund-accounts.ts",
+    "lab1:offer": "tsx labs/lab1-sdex/02-publish-offer.ts",
+    "lab1:paths": "tsx labs/lab1-sdex/03-query-paths.ts",
+    "lab1:swap": "tsx labs/lab1-sdex/04-path-payment.ts",
+    "lab1:verify": "tsx labs/lab1-sdex/05-verify.ts",
+    "lab2:quote": "tsx labs/lab2-soroban/02-quote.ts",
+    "lab2:swap": "tsx labs/lab2-soroban/03-swap.ts",
+    "lab2:verify": "tsx labs/lab2-soroban/04-verify.ts"
   },
   "dependencies": {
-    "@soroswap/sdk": "^0.5.0"
+    "@soroswap/sdk": "^0.5.0",
+    "@stellar/stellar-sdk": "^13.3.0",
+    "dotenv": "^16.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.0"
   }
 }
