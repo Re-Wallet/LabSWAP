@@ -17,12 +17,12 @@
 
 | ID | Caso | Esperado | Estado | Evidencia (txHash) |
 |----|------|----------|--------|---------------------|
-| T1 | Path Payment Strict Send, ruta directa, `destMin` holgado | ✅ éxito | ✅ completado | `09b811004db70ecc43421fb2e45b47cce2588e07a1fd7cd4c41339a16b4e1870` |
+| T1 | Path Payment Strict Send, ruta directa, `destMin` holgado | ✅ éxito | ✅ completado | `0207336b432e18b9e55658d84c76d8b79c028224476e0a4098b1961a1a9ebb7e` |
 | T2 | Path Payment Strict Send, `destMin` imposible | ❌ debe fallar (slippage) | ✅ completado (`op_under_dest_min`) | — |
-| T3 | Path Payment Strict Receive, `sendMax` holgado | ✅ éxito | ⬜ pendiente | — |
-| T4 | Path Payment Strict Receive, `sendMax` insuficiente | ❌ debe fallar (slippage) | ⬜ pendiente | — |
-| T5 | Consulta de rutas sin liquidez suficiente | respuesta vacía / controlada | ⬜ pendiente | — |
-| T6 | Trustline faltante en destino | operación rechazada (`op_no_trust`) | ⬜ pendiente | — |
+| T3 | Path Payment Strict Receive, `sendMax` holgado | ✅ éxito | ✅ completado | `5b49ce134675ae464c7e4eac6b6906da1a77df74bfe7c4cf185767c32816c7b1` |
+| T4 | Path Payment Strict Receive, `sendMax` insuficiente | ❌ debe fallar (slippage) | ✅ completado (`op_over_source_max`) | — |
+| T5 | Consulta de rutas sin liquidez suficiente | respuesta vacía / controlada | ⚠️ 1 ruta encontrada (hay liquidez en libro para 10M XLM) | — |
+| T6 | Trustline faltante en destino | operación rechazada (`op_no_trust`) | ⚠️ `op_no_destination` (cuenta aleatoria no existe); para `op_no_trust` se necesita cuenta existente sin trustline | — |
 
 ## Logs
 
