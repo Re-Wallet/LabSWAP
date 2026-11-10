@@ -82,7 +82,7 @@ Sin contratos inteligentes. Utiliza operaciones nativas de Stellar.
 npm run lab1:fund   # 01: Fondar cuentas + trustline USDC
 npm run lab1:offer  # 02: Publicar Manage Sell Offer
 npm run lab1:paths  # 03: Consultar rutas strict-send / strict-receive
-npm run lab1:swap   # 04: Ejecutar Path Payment (T1-T4)
+npm run lab1:swap   # 04: Ejecutar Path Payment (T1-T6)
 npm run lab1:verify # 05: Verificar balances antes y después
 ```
 
@@ -94,8 +94,8 @@ npm run lab1:verify # 05: Verificar balances antes y después
 | T2 | Strict Send, `destMin` imposible | ✅ Falló (`op_under_dest_min`) | — |
 | T3 | Strict Receive, `sendMax` holgado | ✅ Éxito | `5b49ce134675...` |
 | T4 | Strict Receive, `sendMax` insuficiente | ✅ Falló (`op_over_source_max`) | — |
-| T5 | Ruta sin liquidez | ⚠️ Depende del libro | — |
-| T6 | Trustline faltante | ⚠️ `op_no_trust` | — |
+| T5 | Ruta sin liquidez | ✅ 0 rutas para 10M USDC | — |
+| T6 | Trustline faltante | ✅ `op_no_trust` confirmado | — |
 
 ### Balances Verificados (Lab 1)
 
