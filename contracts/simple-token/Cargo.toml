@@ -1,0 +1,14 @@
+[package]
+name = "simple_token"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+soroban-sdk = { version = "22" }
+
+[profile.release]
+opt-level = 3
+overflow-checks = true
+
+[lib]
+crate-type = ["cdylib"]

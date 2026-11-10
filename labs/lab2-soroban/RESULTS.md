@@ -1,54 +1,49 @@
-# Lab 2 — AMM Soroban (Soroswap) — Resultados
+# Lab 2 — AMM Soroban (Contrato Propio x*y=k) — Resultados
 
 > Lab de nivel de contrato (smart contracts). Ejecutado en **Soroban Testnet**.
-> Lógica: producto constante x*y = k, comisión 0.30% (modelo Soroswap).
-> Activos: TOKEN_A ↔ TOKEN_B (contract IDs Soroban).
+> Lógica: producto constante x*y = k, comisión 0.30%.
+> Contrato desplegado de forma independiente (ingeniería inversa, sin Soroswap SDK).
 
-## Scripts
+## Contratos desplegados en Testnet
 
-| Script | Descripción |
-|--------|-------------|
-| `01-init-sdk.ts` | Inicializar SDK Soroswap (red TESTNET) |
-| `02-quote.ts` | Obtener cotización EXACT_IN (amountIn → amountOut implícito) |
-| `03-swap.ts` | Ejecutar swap EXACT_IN (T7, T8, T9) |
-| `04-verify.ts` | Verificar balances on-chain y reservas del pool |
+| Contrato | ID |
+|----------|-----|
+| AMM (x*y=k, fee 0.3%) | `CAY2WCEZCKDQV2QNTZP7QN2WCKVAQUXA2M7ADINTHUAN3BO2S27RBJHA` |
+| Token A | `CAGZ57WF5Z6T6AMG2YH6MUXLA6SMWASQQ62DXJQRJO5IQKX7OKHTZHTS` |
+| Token B | `CDOOW7CLAMWBAOSP2OWDJRCCIU6VJS6PGIAEOK4QGMM72TFULF3E3VZN` |
 
-## Requisitos en `.env`
+## Reservas del pool
 
-```
-SOROSWAP_API_KEY=sk_test_...   # https://api.soroswap.finance
-SENDER_SECRET=S...
-SENDER_PUBLIC=G...
-TOKEN_A=C...token_a
-TOKEN_B=C...token_b
-PAIR_ID=C...pair_contract      # opcional, para leer reservas
-```
+| Momento | Reserva A | Reserva B | k = a×b |
+|---------|-----------|-----------|---------|
+| Inicial | 50,000,000 | 50,000,000 | 2.5×10¹⁵ |
+| Después T7+T8 | 159,670,000 | 15,657,294 | ≈2.5×10¹⁵ |
 
 ## Matriz de casos de prueba
 
 | ID | Caso | Esperado | Estado | Evidencia (txHash) |
 |----|------|----------|--------|---------------------|
-| T7 | Swap EXACT_IN monto pequeño | output ≈ cotización | ⬜ pendiente | — |
-| T8 | Swap EXACT_IN monto grande | impacto de precio > T7 | ⬜ pendiente | — |
-| T9 | Swap con amountOutMin superior al output | revertido (slippage) | ⬜ pendiente | — |
-| T10 | Swap con deadline expirado | revertido | ⬜ pendiente | — |
-| T11 | Reservas antes/después: x'·y' ≥ k | ✅ invariante se cumple | ⬜ pendiente | — |
-| T12 | (Opcional) Swap EXACT_OUT | si el contrato lo soporta | ⬜ pendiente | — |
+| T7 | Swap EXACT_IN monto pequeño (1 unidad) | output ≈ cotización | ✅ completado | `78b1c68d1f01d9ff3fbf0407b883e8026b08bc90acf7268c994e2964979bd4ec` |
+| T8 | Swap EXACT_IN monto grande (100 unidades) | impacto de precio > T7 | ✅ completado | `4d35615be5bc76f42211be4c2cf39c52ccd457d88664c903dcbeebd6aaeba752` |
+| T9 | Swap con amountOutMin superior al output | revertido (slippage) | ✅ completado (panic) | — |
+| T10 | Swap con deadline expirado | revertido | ⚠️ no implementado (contrato simple) | — |
+| T11 | Reservas antes/después: x'·y' ≥ k | ✅ invariante se cumple | ✅ completado | — |
+| T12 | (Opcional) Swap EXACT_OUT | si el contrato lo soporta | ⚠️ no implementado | — |
 
-## Logs
+## Resultados numéricos
 
-Los eventos JSONL se escriben en `logs/lab2/<timestamp>.jsonl` (no commitear si contienen datos sensibles).
-Cada operación on-chain registra su `txHash` para auditoría en stellar.expert (testnet).
+| Caso | amountIn | amountOut | Precio efectivo | Precio spot | Impacto |
+|------|----------|-----------|-----------------|-------------|---------|
+| T7 | 10,000,000 (1 uni) | 8,312,489 | 1.203 | 1.000 | ~1.2% |
+| T8 | 100,000,000 (10 uni) | 26,030,217 | 3.841 | 1.000 | ~74% |
 
-## Notas
+## Conclusión
 
-- Opción A (SDK Soroswap): requiere API key válida de testnet y contratos desplegados.
-- Opción B (despliegue propio): usar `stellar contract invoke` con el Router (ver especificación).
-- T9/T10 requieren parámetros `amount_out_min` y `deadline` que el SDK puede no exponer directamente; en ese caso usar la CLI de Soroban.
+- **T7/T8**: El impacto de precio crece con el tamaño de la operación relativa a las reservas (regla x*y=k).
+- **T9**: El contrato revierte cuando `amount_out_min` no se cumple (protección contra slippage).
+- **T11**: `k_final ≈ k_inicial` (diferencia por redondeo entero), confirmando el invariante del producto constante.
 
 ## Referencias
 
 - Soroswap AMM: https://docs.soroswap.finance/amm/how-it-works
-- SDK Soroswap: https://www.npmjs.com/package/@soroswap/sdk
-- Despliegue Soroswap: https://docs.soroswap.finance/amm/technical-reference/deploy-yourself
 - Soroban: https://developers.stellar.org/docs/build/smart-contracts

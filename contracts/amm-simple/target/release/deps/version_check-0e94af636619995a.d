@@ -1,0 +1,10 @@
+/datos/lordbitcoin/Projects/Projects Web3/ReWallet/LabSWAP/contracts/amm-simple/target/release/deps/version_check-0e94af636619995a.d: /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/lib.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/version.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/channel.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/date.rs
+
+/datos/lordbitcoin/Projects/Projects Web3/ReWallet/LabSWAP/contracts/amm-simple/target/release/deps/libversion_check-0e94af636619995a.rlib: /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/lib.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/version.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/channel.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/date.rs
+
+/datos/lordbitcoin/Projects/Projects Web3/ReWallet/LabSWAP/contracts/amm-simple/target/release/deps/libversion_check-0e94af636619995a.rmeta: /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/lib.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/version.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/channel.rs /home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/date.rs
+
+/home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/lib.rs:
+/home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/version.rs:
+/home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/channel.rs:
+/home/lordbitcoin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/version_check-0.9.5/src/date.rs:

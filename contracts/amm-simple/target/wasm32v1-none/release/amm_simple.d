@@ -1,0 +1,1 @@
+/datos/lordbitcoin/Projects/Projects\ Web3/ReWallet/LabSWAP/contracts/amm-simple/target/wasm32v1-none/release/amm_simple.wasm: /datos/lordbitcoin/Projects/Projects\ Web3/ReWallet/LabSWAP/contracts/amm-simple/src/lib.rs

@@ -1,0 +1,1 @@
+/datos/lordbitcoin/Projects/Projects\ Web3/ReWallet/LabSWAP/contracts/simple-token/target/wasm32v1-none/release/simple_token.wasm: /datos/lordbitcoin/Projects/Projects\ Web3/ReWallet/LabSWAP/contracts/simple-token/src/lib.rs
