@@ -1,2 +1,0 @@
-{"ts":"2026-11-10T11:07:43.772Z","lab":"setup","event":"info","network":"testnet","status":"ok","meta":{"step":"horizon-reachable","coreVersion":"stellar-core 30.0.0 (0e49751aa9ddf892302cca02cea7f3f5d97df9f1)"}}
-{"ts":"2026-11-10T11:07:44.639Z","lab":"setup","event":"info","network":"testnet","status":"ok","meta":{"step":"soroban-reachable","rpcStatus":"healthy"}}

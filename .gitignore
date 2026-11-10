@@ -9,8 +9,8 @@ dist/
 build/
 *.tsbuildinfo
 
-# Logs (evitar commitear logs con datos sensibles; solo se versionan si están limpios)
-logs/*.jsonl
+# Logs (evitar commitear logs con datos sensibles)
+logs/
 
 # IDE
 .vscode/
