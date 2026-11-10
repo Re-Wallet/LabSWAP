@@ -1,0 +1,23 @@
+# Dependencias
+node_modules/
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+build/
+*.tsbuildinfo
+
+# Logs (evitar commitear logs con datos sensibles; solo se versionan si están limpios)
+logs/*.jsonl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
