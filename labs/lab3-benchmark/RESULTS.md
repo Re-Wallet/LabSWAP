@@ -4,12 +4,12 @@
 
 | Tamaño | Motor | amountIn | amountOut | priceEffective | priceImpactPct | txHash | Latencia | Éxito |
 |--------|-------|----------|-----------|----------------|----------------|--------|----------|-------|
-| pequeno | sdex | 1000000 | - | - | - | - | 5731ms | ❌ |
-| pequeno | soroban | 1000000 | 3669 | 3669 | -0.2415 | - | 31989ms | ✅ |
-| medio | sdex | 10000000 | - | - | - | - | 7458ms | ❌ |
-| medio | soroban | 10000000 | 36212 | 36212 | -2.3749 | - | 19492ms | ✅ |
-| grande | sdex | 100000000 | - | - | - | - | 6486ms | ❌ |
-| grande | soroban | 100000000 | 319619 | 319619 | -20.2023 | - | 43764ms | ✅ |
+| pequeno | sdex | 1000000 | - | - | - | - | 1974ms | ❌ |
+| pequeno | soroban | 1000000 | 10021 | 10021 | -0.3992 | - | 23566ms | ✅ |
+| medio | sdex | 10000000 | - | - | - | - | 2073ms | ❌ |
+| medio | soroban | 10000000 | 98053 | 98053 | -3.8779 | - | 17965ms | ✅ |
+| grande | sdex | 100000000 | - | - | - | - | 1635ms | ❌ |
+| grande | soroban | 100000000 | 803925 | 803925 | -30.0668 | - | 33325ms | ✅ |
 
 ## Conclusión
 

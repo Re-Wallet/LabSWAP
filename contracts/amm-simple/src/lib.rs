@@ -41,13 +41,20 @@ impl AmmSimple {
 
     /// Swap exact-in: devuelve la cantidad de token_out recibida.
     /// amount_out_min protege contra slippage.
+    /// deadline: timestamp UNIX máximo; si el ledger actual lo supera, revierte.
     pub fn swap(
         env: Env,
         token_in: Address,
         token_out: Address,
         amount_in: i128,
         amount_out_min: i128,
+        deadline: u64,
     ) -> i128 {
+        let now = env.ledger().timestamp();
+        if now > deadline {
+            panic!("deadline expired");
+        }
+
         let key = ReserveKey {
             token_a: token_in.clone(),
             token_b: token_out.clone(),
@@ -76,6 +83,61 @@ impl AmmSimple {
         env.storage().persistent().set(&key, &reserves);
 
         amount_out
+    }
+
+    /// Swap exact-out: recibe una cantidad fija de token_out, paga amount_in de token_in.
+    /// amount_in_max protege contra slippage (máximo de token_in que se está dispuesto a pagar).
+    /// deadline: timestamp UNIX máximo; si el ledger actual lo supera, revierte.
+    pub fn swap_exact_out(
+        env: Env,
+        token_in: Address,
+        token_out: Address,
+        amount_out: i128,
+        amount_in_max: i128,
+        deadline: u64,
+    ) -> i128 {
+        let now = env.ledger().timestamp();
+        if now > deadline {
+            panic!("deadline expired");
+        }
+
+        let key = ReserveKey {
+            token_a: token_in.clone(),
+            token_b: token_out.clone(),
+        };
+        let mut reserves = env
+            .storage()
+            .persistent()
+            .get::<ReserveKey, Reserves>(&key)
+            .expect("pool not initialized");
+
+        let x = reserves.a;
+        let y = reserves.b;
+
+        if y <= amount_out {
+            panic!("insufficient output liquidity");
+        }
+
+        // x * y = k : para obtener amount_out de y, necesitamos x_new = k / (y - amount_out)
+        // amount_in_net = x_new - x = (x * y) / (y - amount_out) - x = (x * amount_out) / (y - amount_out)
+        let amount_in_net = (x * amount_out) / (y - amount_out);
+
+        // Aplicar fee: amount_in_net = amount_in * (10000 - FEE_BPS) / 10000
+        // → amount_in = amount_in_net * 10000 / (10000 - FEE_BPS)
+        let amount_in = amount_in_net * 10000i128 / (10000i128 - FEE_BPS as i128);
+
+        if amount_in <= 0 {
+            panic!("insufficient input");
+        }
+        if amount_in > amount_in_max {
+            panic!("amount_in_max exceeded");
+        }
+
+        reserves.a = x + amount_in_net;
+        reserves.b = y - amount_out;
+        env.storage().persistent().set(&key, &reserves);
+
+        amount_in
     }
 
     /// Obtener reservas del pool.

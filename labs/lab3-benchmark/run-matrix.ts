@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Horizon, Keypair, Asset, Operation, TransactionBuilder, BASE_FEE, Networks } from "@stellar/stellar-sdk";
+import { Keypair, Asset, Operation, TransactionBuilder, BASE_FEE, Networks } from "@stellar/stellar-sdk";
 import { log } from "../../scripts/lib/logger.js";
 import { execSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -47,7 +47,6 @@ function stellarContractInvoke(contractId: string, fn: string, args: Record<stri
       { encoding: "utf8", timeout: 60000, maxBuffer: 10 * 1024 * 1024 }
     );
     const clean = out.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
-    // Buscar tx hash en cualquier parte de la salida
     const txMatch = clean.match(/([a-f0-9]{64})/);
     const resultMatch = clean.match(/^(".*"|\d+|\{.*\})\s*$/m);
     return {
@@ -69,11 +68,11 @@ async function horizonStrictSend(amount: string): Promise<{ amountOut: string | 
       `&destination_asset_code=${encodeURIComponent(USDC_CODE)}` +
       `&destination_asset_issuer=${encodeURIComponent(USDC_ISSUER)}` +
       `&destination_account=${encodeURIComponent(RECEIVER)}`;
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!res.ok) {
-      return { amountOut: null, error: `HTTP ${res.status}` };
-    }
-    const data: any = await res.json();
+    const out = execSync(`curl -s -A "Mozilla/5.0" '${url}'`, {
+      encoding: "utf8",
+      timeout: 30000,
+    });
+    const data: any = JSON.parse(out);
     const records: any[] = data._embedded?.records ?? [];
     const usdcRoute = records.find((r: any) => r.destination_asset_code === USDC_CODE);
     if (!usdcRoute) {
@@ -101,37 +100,56 @@ async function runSdex(size: { label: string; amount: string }, env: any): Promi
       return r;
     }
 
-    const server = new Horizon.Server(HORIZON);
+    const seqOut = execSync(`curl -s -A "Mozilla/5.0" '${HORIZON}/accounts/${env.PUBLIC_ORIGEN}'`, {
+      encoding: "utf8", timeout: 30000,
+    });
+    const seqData: any = JSON.parse(seqOut);
+    const sequence = seqData.sequence;
+
+    const { Keypair, Asset, Operation, TransactionBuilder, Networks } = await import("@stellar/stellar-sdk");
     const emitter = Keypair.fromSecret(env.SEED_ORIGEN!);
     const USDC = new Asset(USDC_CODE, USDC_ISSUER);
-    const account = await server.loadAccount(emitter.publicKey());
-    const destMin = quote.amountOut;
+
+    const fakeAccount: any = {
+      accountId: () => emitter.publicKey(),
+      sequenceNumber: () => sequence,
+      incrementSequenceNumber: () => {},
+    };
 
     const t0 = Date.now();
-    const tx = new TransactionBuilder(account, {
-      fee: BASE_FEE, networkPassphrase: Networks.TESTNET,
+    const tx = new TransactionBuilder(fakeAccount, {
+      fee: BASE_FEE.toString(),
+      networkPassphrase: Networks.TESTNET,
     })
       .addOperation(Operation.pathPaymentStrictSend({
         sendAsset: Asset.native(), sendAmount: size.amount,
-        destination: env.PUBLIC_DESTINO!, destAsset: USDC, destMin, path: [],
+        destination: env.PUBLIC_DESTINO!, destAsset: USDC, destMin: quote.amountOut, path: [],
         source: emitter.publicKey(),
       }))
       .setTimeout(30)
       .build();
     tx.sign(emitter);
-    const result = await server.submitTransaction(tx);
+    const signedXdr = tx.toXDR();
+
+    const submitOut = execSync(`curl -s -X POST -A "Mozilla/5.0" -H "Content-Type: application/octet-stream" --data-binary '${signedXdr}' '${HORIZON}/transactions'`, {
+      encoding: "utf8", timeout: 30000,
+    });
+    const submitData: any = JSON.parse(submitOut);
+    if (submitData.error_code) {
+      throw new Error(`Horizon error: ${submitData.error_code} - ${submitData.message}`);
+    }
     const latencyMs = Date.now() - t0;
 
     r.success = true;
-    r.txHash = result.hash;
+    r.txHash = submitData.hash;
     r.amountOutActual = quote.amountOut;
     r.priceEffective = quote.amountOut;
     r.latencyMs = latencyMs;
-    r.feeCharged = (result as any).fee_charged?.toString();
+    r.feeCharged = submitData.fee_charged?.toString();
 
     log({ lab: "lab3", event: "submit", network: "testnet",
       actor: emitter.publicKey(), amountIn: size.amount,
-      amountOut: quote.amountOut, txHash: result.hash, status: "ok",
+      amountOut: quote.amountOut, txHash: submitData.hash, status: "ok",
       meta: { engine: "sdex", size: size.label } });
   } catch (err: any) {
     r.error = err.message;
@@ -169,6 +187,7 @@ async function runSoroban(size: { label: string; amount: string }, env: any): Pr
       token_out: env.TOKEN_B,
       amount_in: size.amount,
       amount_out_min: "0",
+      deadline: "9999999999",
     });
     const latencyMs = Date.now() - t0;
 
